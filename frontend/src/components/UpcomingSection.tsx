@@ -1,14 +1,27 @@
+import { useState } from 'react';
 import type { RenewalAlert } from '@/types';
 import { daysUntil, formatDaysLeft, formatMoney } from '@/utils/dates';
 
 interface Props {
   alerts: RenewalAlert[];
-  onCancel: (id: string) => void;
+  onCancel: (id: string) => void | Promise<void>;
   onOpen: (id: string) => void;
 }
 
 export function UpcomingSection({ alerts, onCancel, onOpen }: Props) {
+  const [busyIds, setBusyIds] = useState<string[]>([]);
+
   if (alerts.length === 0) return null;
+
+  const handleCancel = async (id: string) => {
+    if (busyIds.includes(id)) return;
+    setBusyIds((prev) => [...prev, id]);
+    try {
+      await onCancel(id);
+    } finally {
+      setBusyIds((prev) => prev.filter((x) => x !== id));
+    }
+  };
 
   return (
     <section className="mb-10">
@@ -20,6 +33,7 @@ export function UpcomingSection({ alerts, onCancel, onOpen }: Props) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {alerts.map((a) => {
           const days = daysUntil(a.next_payment_date);
+          const busy = busyIds.includes(a.id);
           return (
             <article
               key={a.id}
@@ -42,13 +56,14 @@ export function UpcomingSection({ alerts, onCancel, onOpen }: Props) {
 
               <button
                 type="button"
+                disabled={busy}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onCancel(a.id);
+                  void handleCancel(a.id);
                 }}
-                className="mt-4 w-full rounded-xl bg-white/15 px-3 py-2 text-sm font-medium backdrop-blur transition hover:bg-white/25"
+                className="mt-4 w-full rounded-xl bg-white/15 px-3 py-2 text-sm font-medium backdrop-blur transition hover:bg-white/25 disabled:opacity-60"
               >
-                Отменить
+                {busy ? 'Отмена…' : 'Отменить'}
               </button>
             </article>
           );
