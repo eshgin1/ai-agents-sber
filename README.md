@@ -1,32 +1,54 @@
 # Obligations Dashboard
 
+Веб-дашборд для AI-агента контроля финансовых обязательств: подписки, страховки, гарантии и счета в одном окне, с обновлениями в реальном времени через SSE.
+
 ```
 obligations-dashboard/
-├── frontend/   # React + Vite + Tailwind
-└── backend/    # FastAPI (Docker) из gitverse
+├── frontend/   # React + TypeScript + Vite + Tailwind
+└── backend/    # FastAPI (Docker)
 ```
+
+## Задеплоенная версия
+
+- **Фронтенд:** https://ai-agents-sber.vercel.app/
+- **API / Swagger:** https://ai-agents-sber.onrender.com/docs
+
+> На бесплатном Render API может «засыпать» без трафика — первый запрос после паузы занимает ~30–60 секунд.
 
 ## Как запустить локально
 
-### 1. Бэкенд
+Нужны **Node.js 20+**, **npm** и **Docker Desktop**.
 
-Нужен **Docker Desktop**.
+### 1. Бэкенд
 
 ```bash
 cd backend
 docker compose up --build
 ```
 
+После старта:
+
 - API: http://localhost:8000
-- Swagger: http://localhost:8000/docs
+- Документация: http://localhost:8000/docs
 - SSE: http://localhost:8000/events
 
+Остановка:
+
 ```bash
-docker compose down       # остановить
-docker compose down -v    # остановить и сбросить БД
+docker compose down
+```
+
+Сброс локальной SQLite-базы (файл `backend/data/obligations.db`):
+
+```bash
+docker compose down
+Remove-Item .\data\obligations.db   # PowerShell
+docker compose up --build
 ```
 
 ### 2. Фронтенд
+
+В другом терминале:
 
 ```bash
 cd frontend
@@ -36,59 +58,38 @@ npm run dev
 
 UI: http://localhost:5173
 
-Vite проксирует `/obligations` и `/events` на `http://localhost:8000`.
-
-## Деплой (публичная ссылка)
-
-Бэкенд нельзя держать на Vercel. Схема: **Render (API) + Vercel (UI)**.
-
-### 1. Backend → [Render](https://render.com)
-
-1. Залей репозиторий на GitHub (нужна папка `backend/`).
-2. Dashboard → **New → Web Service** → подключи репо.
-3. Settings:
-   - Root Directory: `backend`
-   - Runtime: **Docker**
-   - Instance: Free
-4. Deploy → получишь URL вида `https://xxx.onrender.com`
-5. Проверь: `https://xxx.onrender.com/docs`
-
-> Free-план на Render «засыпает» без трафика (~50 с на пробуждение).
-
-### 2. Frontend → [Vercel](https://vercel.com)
-
-1. **Add New Project** → тот же GitHub-репо.
-2. Root Directory: `frontend`
-3. Framework: Vite (авто)
-4. Environment Variable:
-   - Name: `VITE_API_URL`
-   - Value: `https://xxx.onrender.com` (без `/` в конце)
-5. Deploy → ссылка вида `https://yyy.vercel.app`
-
-CORS на бэкенде уже `allow_origins=["*"]`, менять не нужно.
-
-Локально `VITE_API_URL` не задавай — работает Vite proxy на `:8000`.
+В dev Vite проксирует `/obligations` и `/events` на `http://localhost:8000`. Переменную `VITE_API_URL` локально задавать не нужно.
 
 ## Что использовал и почему
 
 | Решение | Зачем |
 |---------|--------|
-| **Vite + React 19 + TypeScript** | Быстрый SPA и строгая типизация контракта FastAPI |
-| **Только функциональные компоненты** | По ТЗ; хуки для SSE, URL-фильтров и загрузки |
-| **`useReducer`** | Единый стейт для списка, фильтров, SSE и оптимистичной оплаты с откатом |
-| **React Router (`useSearchParams`)** | Шаринг фильтров через URL без лишних библиотек |
-| **Tailwind CSS v4** | Быстрая вёрстка карточек и бейджей срочности |
-| **Docker backend из gitverse** | Готовый API + SQLite + SSE |
+| **Vite + React 19** | Быстрый DX и современный SPA без лишнего boilerplate |
+| **TypeScript** | Статические типы под контракт API (обязательства, платежи, SSE-события), меньше сюрпризов в проде |
+| **Только функциональные компоненты** | По ТЗ; удобная композиция хуков (загрузка, фильтры в URL, SSE) |
+| **`useReducer` (без Redux/Zustand)** | Состояние дашборда единое: список, фильтры, SSE, оптимистичная оплата с откатом. Для одного экрана отдельный store-пакет избыточен — `useReducer` даёт предсказуемые переходы и простой debugging |
+| **React Router (`useSearchParams`)** | Фильтры в URL (`?category=&q=`), ссылкой можно поделиться |
+| **Tailwind CSS v4** | Быстрая вёрстка карточек, бейджей срочности и адаптив без раздувания CSS-модулей |
+| **EventSource (SSE)** | Live-обновления без WebSocket-инфры; родной API браузера |
+| **Docker + готовый FastAPI backend** | Локальный и продовый запуск API/SSE/SQLite одной командой |
 
-## Синхронизация с API
+## Технические требования (как закрыты)
 
-| UI | Backend |
-|----|---------|
-| Список обязательств | `GET /obligations` |
-| Блок «Скоро спишут» | `GET /obligations/upcoming` → `renewal_alerts` |
-| Сумма за месяц | клиентский расчёт по `active` + `next_payment_date` в текущем месяце |
-| Оплата | `POST /obligations/{id}/pay` → `{ obligation, payment }` |
-| Отмена | `PATCH /obligations/{id}/cancel` |
-| Удаление | `DELETE /obligations/{id}` |
-| История | `GET /obligations/{id}/payments` |
-| Live-обновления | `EventSource('/events')` |
+- Только функциональные компоненты, без class-components
+- TypeScript на всём фронтенде
+- Стейт: `useReducer` + локальные `useState` в UI-деталях (модалки, вкладки)
+- README: запуск, стек с обоснованием, ссылка на деплой
+
+## Мотивация участия в проекте
+
+### 1. Что привлекает в этом проекте?
+
+Интересна связка «AI-агент + реальный пользовательский продукт»: не абстрактный демо-чат, а интерфейс, где данные из почты/агента сразу влияют на решение человека — успеть отменить подписку, увидеть срочные платежи, не потерять картину обязательств. Нравится работа на стыке realtime (SSE), аккуратного UX и понятного доменного API. Хочу стать частью команды профессионалов и крутого продукта, где важны качество интерфейса, ответственность за прод и совместный рост.
+
+### 2. Как вижу свою роль в команде?
+
+Первостепенно — **frontend-разработчик**: UI дашборда, состояние, интеграции с API/SSE, производительность и UX. Готов закрывать задачи как **fullstack** (обвязка API, деплой, контракты). При необходимости готов брать роль **техлида** по фронту/домену: ревью, договорённости по архитектуре, приоритеты и помощь команде доводить фичи до продакшена.
+
+### 3. Сколько часов в неделю и на какой срок?
+
+Готов уделять разработке **около 40 часов в неделю** на длительный срок — ориентир на постоянное участие в продукте, а не на короткий pet-project спринт.
