@@ -93,10 +93,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         loading: false,
         obligations: action.obligations,
-        renewalAlerts:
-          action.renewalAlerts.length > 0
-            ? action.renewalAlerts
-            : buildRenewalAlerts(action.obligations),
+        // Backend /upcoming may include non-active subscriptions — derive alerts ourselves
+        renewalAlerts: buildRenewalAlerts(action.obligations),
       };
 
     case 'LOAD_ERROR':

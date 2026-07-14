@@ -30,6 +30,8 @@ export default function App({ state, dispatch }: Props) {
   const selected = state.obligations.find((o) => o.id === state.selectedId) ?? null;
 
   const visibleAlerts = state.renewalAlerts.filter((a) => {
+    const ob = state.obligations.find((o) => o.id === a.id);
+    if (!ob || ob.status !== 'active') return false;
     if (state.category && state.category !== 'subscription') return false;
     if (
       state.query.trim() &&
@@ -42,11 +44,20 @@ export default function App({ state, dispatch }: Props) {
   });
 
   const handleCancel = async (id: string) => {
+    const current = state.obligations.find((o) => o.id === id);
+    if (!current || current.status !== 'active') return;
+
+    const optimistic = { ...current, status: 'cancelled' as const };
+    dispatch({ type: 'CANCEL_SUCCESS', obligation: optimistic });
+
     try {
       const updated = await api.cancel(id);
       dispatch({ type: 'CANCEL_SUCCESS', obligation: updated });
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Не удалось отменить обязательство');
+      dispatch({ type: 'CANCEL_SUCCESS', obligation: current });
+      const msg = e instanceof Error ? e.message : 'Не удалось отменить обязательство';
+      if (/status ['"]cancelled['"]/i.test(msg)) return;
+      alert(msg);
     }
   };
 
