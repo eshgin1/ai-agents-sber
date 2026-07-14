@@ -1,6 +1,7 @@
 import os
 import uuid
 from datetime import date, datetime
+from pathlib import Path
 
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import create_engine
@@ -8,7 +9,20 @@ from sqlalchemy.orm import sessionmaker
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/obligations.db")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+
+def _ensure_sqlite_dir(url: str) -> None:
+    if not url.startswith("sqlite:///"):
+        return
+    raw = url.removeprefix("sqlite:///")
+    Path(raw).parent.mkdir(parents=True, exist_ok=True)
+
+
+_ensure_sqlite_dir(DATABASE_URL)
+
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

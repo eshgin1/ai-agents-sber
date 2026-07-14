@@ -3,4 +3,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-CMD ["sh", "-c", "python init_data.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+RUN mkdir -p /app/data
+ENV DATABASE_URL=sqlite:////app/data/obligations.db
+CMD ["sh", "-c", "python init_data.py && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

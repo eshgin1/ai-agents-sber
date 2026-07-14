@@ -6,4 +6,5 @@ services:
     volumes:
       - ./data:/app/data
     environment:
-      - DATABASE_URL=sqlite:///./data/obligations.db
+      - DATABASE_URL=sqlite:////app/data/obligations.db
+      - PORT=8000
